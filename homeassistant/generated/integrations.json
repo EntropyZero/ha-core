@@ -7789,6 +7789,11 @@
       "config_flow": true,
       "iot_class": "calculated"
     },
+    "ml_model": {
+      "integration_type": "helper",
+      "config_flow": true,
+      "iot_class": "local_push"
+    },
     "mold_indicator": {
       "integration_type": "helper",
       "config_flow": true,
@@ -7878,6 +7883,7 @@
     "local_ip",
     "local_todo",
     "min_max",
+    "ml_model",
     "mobile_app",
     "moehlenhoff_alpha2",
     "mold_indicator",

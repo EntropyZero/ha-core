@@ -662,6 +662,7 @@ INTEGRATIONS_WITHOUT_QUALITY_SCALE_FILE = [
     "motionblinds_ble",
     "motioneye",
     "mpd",
+    "ml_model",
     "mqtt_eventstream",
     "mqtt_json",
     "mqtt_room",
