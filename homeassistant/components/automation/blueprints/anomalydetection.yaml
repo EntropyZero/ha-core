@@ -1,0 +1,141 @@
+blueprint:
+  name: Anomaly Detection and Classification
+  author: icg4
+  description: "Testing.
+
+    "
+  domain: automation
+  source_url: https://raw.githubusercontent.com/icg4/ha-core/config/blueprints/anomalydetection.yaml
+  input:
+    mode:
+      name: Mode
+      description: Select the mode to use
+      selector:
+        select:
+          options:
+            - "Inference"
+            - "Training"
+          custom_value: false
+          sort: false
+          multiple: false
+    important:
+      name: Important (Beta)
+      description:
+        "Use AI to classify events into 'critical', 'normal' and 'low'.
+        Notifications will only be sent when an event is classified as at least 'normal'.
+        For critical events, the notification will be delivered even if 'Do not disturb'
+        is on. Use with caution: AI can make mistakes.
+
+        "
+      default: false
+      selector:
+        boolean: {}
+    remember:
+      name: Remember
+      description:
+        "Remember this event so you can ask about it later. Event Calendar
+        needs to be configured. If 'important' is set to true, only events classified
+        as 'normal' or higher will be remembered.
+
+        "
+      default: false
+      selector:
+        boolean: {}
+    notify_device:
+      name: Notify Device
+      description:
+        The devices to send the notification to. Multiple devices may be
+        used. Only works with Home Assistant mobile app.
+      default: []
+      selector:
+        device:
+          multiple: true
+          filter:
+            - integration: mobile_app
+    sensor_entities:
+      name: Sensor Entities
+      description: "Available sensor entities to monitor.
+
+        "
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain:
+                - sensor
+    object_type:
+      name: Included Object Type(s)
+      description: "(Classes available)
+
+        Only run if frigate labels the object as one of these. (person, dog, bird,
+        etc)"
+      default: []
+      selector:
+        text:
+          multiline: false
+          multiple: true
+    trigger_state:
+      name: Trigger State
+      description: "Trigger the automation when a batch of data is ready."
+      default: ready
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    tap_navigate:
+      name: Tap Navigate
+      description: "Path to navigate to when notification is opened (e.g. /lovelace/detection).\n"
+      default: /lovelace/0
+      selector:
+        text:
+          multiline: false
+          multiple: false
+variables:
+  important: !input important
+  mode: !input mode
+  notify_devices: !input notify_device
+  device_name_map:
+    "{% set ns = namespace(device_names=[]) %} {% for device_id in
+    notify_devices %}\n  {% set device_name = device_attr(device_id, \"name\") %}\n
+    \ {% set sanitized_name = \"mobile_app_\" + device_name | slugify  %}\n  {% set
+    ns.device_names = ns.device_names + [sanitized_name] %}\n{% endfor %} {{ ns.device_names
+    }}\n"
+  object_types_list: !input object_type
+  sensors_entities_list: !input sensor_entities
+  sensor_entity: "\n {{ trigger.entity_id}}\n" # the sensor entity that triggered the event
+  tag: "\n{{ sensor_entity + int(as_timestamp(now()))|string}}\n" # adding a timestamp
+  group: "\n{{ sensor_entity }}\n" # what sensor triggered the event
+  label: "\nAnomaly detected\n" # label for the notification
+  sensor: "{% \n {{ sensor_entity.replace(\"sensor.\", \"\").replace(\"_\",
+    \" \")|capitalize }}\n" # sensor name for the notification
+max_exceeded: silent
+mode: single
+trigger:
+  - platform: state
+    entity_id: !input sensor_entities
+    to: !input trigger_state
+    id: batch_trigger
+condition:
+  - condition: template
+    value_template: "\n true\n"
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "\n true\n" # if model state is true...
+        sequence:
+          - alias: Send instant notification to notify devices
+            repeat:
+              for_each: "{{device_name_map}}"
+              sequence:
+                - action: notify.{{ repeat.item }}
+                  data:
+                    title: "{{ label }}"
+                    message: "{{sensor}}"
+                    data:
+                      entity_id: "{{sensor_entity if mode=='Inference'}}"
+                      url: !input tap_navigate
+                      clickAction: !input tap_navigate
+                      tag: "{{tag}}"
+                      group: "{{group}}"
