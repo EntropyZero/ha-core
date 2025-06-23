@@ -22,20 +22,13 @@ from homeassistant.helpers.schema_config_entry_flow import (
 
 from .const import (
     CONF_SOURCE_SENSOR,
-    CONF_UNIT_PREFIX,
     CONF_UNIT_TIME,
     DOMAIN,
-    METHOD_LEFT,
-    METHOD_RIGHT,
-    METHOD_TRAPEZOIDAL,
+    METHOD_CHANGEPOINT,
+    METHOD_NUMSAMPLES,
+    METHOD_TIMEDURATION,
 )
 
-UNIT_PREFIXES = [
-    selector.SelectOptionDict(value="k", label="k (kilo)"),
-    selector.SelectOptionDict(value="M", label="M (mega)"),
-    selector.SelectOptionDict(value="G", label="G (giga)"),
-    selector.SelectOptionDict(value="T", label="T (tera)"),
-]
 TIME_UNITS = [
     UnitOfTime.SECONDS,
     UnitOfTime.MINUTES,
@@ -43,9 +36,9 @@ TIME_UNITS = [
     UnitOfTime.DAYS,
 ]
 INTEGRATION_METHODS = [
-    METHOD_TRAPEZOIDAL,
-    METHOD_LEFT,
-    METHOD_RIGHT,
+    METHOD_TIMEDURATION,
+    METHOD_CHANGEPOINT,
+    METHOD_NUMSAMPLES,
 ]
 ALLOWED_DOMAINS = [COUNTER_DOMAIN, INPUT_NUMBER_DOMAIN, SENSOR_DOMAIN]
 
@@ -96,12 +89,7 @@ async def _get_config_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_NAME): selector.TextSelector(),
-            vol.Optional(CONF_UNIT_PREFIX): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=UNIT_PREFIXES, mode=selector.SelectSelectorMode.DROPDOWN
-                )
-            ),
-            vol.Required(
+            vol.Optional(
                 CONF_UNIT_TIME, default=UnitOfTime.HOURS
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
