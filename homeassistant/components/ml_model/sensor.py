@@ -18,7 +18,6 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    ATTR_DEVICE_CLASS,
     CONF_MAXIMUM,
     CONF_METHOD,
     CONF_NAME,
@@ -79,28 +78,30 @@ PLATFORM_SCHEMA = vol.All(
             vol.Required(CONF_SOURCE_SENSOR): cv.entity_id,
             vol.Optional(CONF_UNIT_TIME, default=UnitOfTime.HOURS): vol.In(UNIT_TIME),
             vol.Optional(CONF_MAX_SUB_INTERVAL): cv.positive_time_period,
-            vol.Optional(CONF_METHOD, default=METHOD_CHANGEPOINT): vol.In(
+            vol.Required(CONF_METHOD, default=METHOD_CHANGEPOINT): vol.In(
                 BATCH_METHODS
             ),
-            vol.Optional(CONF_MAXIMUM, default=None): vol.Any(None, vol.Coerce(int)),
+            vol.Optional(CONF_MAXIMUM, default=1): vol.Any(None, vol.Coerce(int)),
         }
     ),
 )
 
 
 class _BatchMethod(ABC):
-    def __init__(self) -> None:
+    def __init__(self, count_condition: int) -> None:
         """Initialize the batch method."""
-        self._count_condition: int = 1
+        self._count_condition = count_condition
         self._counter: int = 0
+        if count_condition is None:
+            count_condition = 1
 
     @abstractmethod
     def _increment_counter(self, elapsed_time: Decimal | None) -> int:
         """Return the current batch size."""
 
     @staticmethod
-    def from_name(method_name: str) -> _BatchMethod:
-        return _NAME_TO_BATCH_METHOD[method_name]()
+    def from_name(method_name: str, count_condition: int) -> _BatchMethod:
+        return _NAME_TO_BATCH_METHOD[method_name](count_condition)
 
     def current_batch_size(self) -> int:
         """Return the current batch size."""
@@ -108,7 +109,16 @@ class _BatchMethod(ABC):
 
     def check_batch_ready(self, elapsed_time: Decimal | None) -> bool:
         batch_size_curr = self._increment_counter(elapsed_time)
-        return batch_size_curr >= self._count_condition
+        if batch_size_curr >= self._count_condition:
+            _LOGGER.debug(
+                "Batch ready with size %s, count condition %s",
+                batch_size_curr,
+                self._count_condition,
+            )
+            # reset counter
+            self._counter = 0
+            return True
+        return False
 
 
 class _ChangePoint(_BatchMethod):
@@ -132,7 +142,9 @@ class _TimeDuration(_BatchMethod):
         if elapsed_time is None:
             _LOGGER.error("No elapsed time provided for time duration method")
             return self._counter
-        self._counter += 1
+        # check if elapsed time is greater than count condition
+        if elapsed_time >= self._count_condition:
+            self._counter += 1
         return self._counter
 
 
@@ -228,7 +240,7 @@ class DataLoaderSensor(SensorEntity):
         self._state: bool | None = False
         self._count: int = 0
         self._count_condition: int = count_condition
-        self._method = _BatchMethod.from_name(batch_method)
+        self._method = _BatchMethod.from_name(batch_method, count_condition)
 
         self._attr_name = name if name is not None else f"{source_entity} data loader"
         self._unit_of_measurement: str | None = None
@@ -238,7 +250,7 @@ class DataLoaderSensor(SensorEntity):
         self._source_entity: str = source_entity
         self._attr_device_info = device_info
         self._max_sub_interval: timedelta | None = (
-            None  # disable time based integration
+            None  # disable time based batching
             if max_sub_interval is None or max_sub_interval.total_seconds() == 0
             else max_sub_interval
         )
@@ -250,7 +262,7 @@ class DataLoaderSensor(SensorEntity):
         # If the source has no defined unit we cannot derive a unit
         self._unit_of_measurement = None
 
-        self._attr_device_class = source_state.attributes.get(ATTR_DEVICE_CLASS)
+        self._attr_device_class = None
         if self._attr_device_class:
             self._attr_icon = None  # Remove this sensors icon default and allow to fallback to the device class default
         else:

@@ -10,7 +10,13 @@ import voluptuous as vol
 from homeassistant.components.counter import DOMAIN as COUNTER_DOMAIN
 from homeassistant.components.input_number import DOMAIN as INPUT_NUMBER_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
-from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, CONF_NAME, UnitOfTime
+from homeassistant.const import (
+    ATTR_UNIT_OF_MEASUREMENT,
+    CONF_MAXIMUM,
+    CONF_METHOD,
+    CONF_NAME,
+    UnitOfTime,
+)
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers.schema_config_entry_flow import (
@@ -21,6 +27,7 @@ from homeassistant.helpers.schema_config_entry_flow import (
 )
 
 from .const import (
+    CONF_MAX_SUB_INTERVAL,
     CONF_SOURCE_SENSOR,
     CONF_UNIT_TIME,
     DOMAIN,
@@ -35,7 +42,7 @@ TIME_UNITS = [
     UnitOfTime.HOURS,
     UnitOfTime.DAYS,
 ]
-INTEGRATION_METHODS = [
+BATCH_METHODS = [
     METHOD_CHANGEPOINT,
     METHOD_NUMSAMPLES,
     METHOD_TIMEDURATION,
@@ -77,6 +84,17 @@ async def _get_options_dict(handler: SchemaCommonFlowHandler | None) -> dict:
 
     return {
         vol.Required(CONF_SOURCE_SENSOR): entity_selector,
+        vol.Required(CONF_METHOD, default=METHOD_CHANGEPOINT): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=BATCH_METHODS, translation_key=CONF_METHOD
+            ),
+        ),
+        vol.Optional(CONF_MAX_SUB_INTERVAL): selector.DurationSelector(
+            selector.DurationSelectorConfig(allow_negative=False)
+        ),
+        vol.Optional(CONF_MAXIMUM, default=1): selector.NumberSelector(
+            selector.NumberSelectorConfig(min=0, mode=selector.NumberSelectorMode.BOX),
+        ),
     }
 
 
