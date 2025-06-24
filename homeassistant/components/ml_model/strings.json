@@ -6,6 +6,7 @@
         "title": "Create ML Model sensor",
         "description": "Create a sensor that uses a machine learning model.",
         "data": {
+          "method": "Batch method",
           "name": "[%key:common::config_flow::data::name%]",
           "source": "Input sensor",
           "unit_time": "Time unit"
@@ -20,16 +21,24 @@
     "step": {
       "init": {
         "data": {
-          "source": "[%key:component::integration::config::step::user::data::source%]",
-          "unit_time": "[%key:component::integration::config::step::user::data::unit_time%]"
+          "method": "[%key:component::ml_model::config::step::user::data::method%]",
+          "source": "[%key:component::ml_model::config::step::user::data::source%]",
+          "unit_time": "[%key:component::ml_model::config::step::user::data::unit_time%]"
         },
         "data_description": {
-          "unit_time": "[%key:component::integration::config::step::user::data_description::unit_time%]"
+          "unit_time": "[%key:component::ml_model::config::step::user::data_description::unit_time%]"
         }
       }
     }
   },
   "selector": {
+    "method": {
+      "options": {
+        "change_point": "Change Point Detection",
+        "num_samples": "Number of Samples",
+        "time_duration": "Time Duration"
+      }
+    },
     "unit_time": {
       "options": {
         "s": "Seconds",
