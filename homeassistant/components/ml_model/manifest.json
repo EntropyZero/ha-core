@@ -3,8 +3,8 @@
   "name": "ML Model",
   "after_dependencies": ["counter"],
   "codeowners": ["@iGonzalez9"],
-  "config_flow": true,
+  "config_flow": false,
   "documentation": "https://www.home-assistant.io/integrations/ml_model",
   "integration_type": "helper",
-  "iot_class": "local_push"
+  "iot_class": "local_polling"
 }
