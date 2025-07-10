@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from datetime import UTC, datetime, timedelta
 import logging
-from typing import Final
+from typing import Any, Final
 
 import voluptuous as vol
 
@@ -38,10 +38,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import DataLoaderConfigEntry
 from .const import (
     BATCH_METHODS,
+    CONF_CHANGEPOINT_KEYS,
     CONF_DURATION,
     CONF_END,
+    CONF_NUMSAMPLES_KEYS,
     CONF_SOURCE_SENSOR,
     CONF_START,
+    CONF_TIMEDURATION_KEYS,
     CONF_UNIT_TIME,
     DEFAULT_NAME,
     DOMAIN,
@@ -80,6 +83,21 @@ UNIT_TIME = {
 #         )
 #     return conf
 
+
+def validate_method_keys[_T: dict[str, Any]](conf: _T) -> _T:
+    """Ensure correct keys provided for the batch method selected."""
+
+    if (
+        sum(param in conf for param in CONF_NUMSAMPLES_KEYS) != 2
+        and sum(param in conf for param in CONF_TIMEDURATION_KEYS) != 2
+        and sum(param in conf for param in CONF_CHANGEPOINT_KEYS) != 1
+    ):
+        raise vol.Invalid(
+            "You must provide the correct set of keys for the batch method and condition"
+        )
+    return conf
+
+
 PLATFORM_SCHEMA = vol.All(
     SENSOR_PLATFORM_SCHEMA.extend(
         {
@@ -97,7 +115,7 @@ PLATFORM_SCHEMA = vol.All(
             vol.Optional(CONF_UNIQUE_ID): cv.string,
         }
     ),
-    # exactly_two_period_keys,
+    validate_method_keys,
 )
 
 

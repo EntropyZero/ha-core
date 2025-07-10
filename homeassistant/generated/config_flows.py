@@ -13,6 +13,7 @@ FLOWS = {
         "history_stats",
         "integration",
         "min_max",
+        "ml_model",
         "mold_indicator",
         "random",
         "statistics",

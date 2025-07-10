@@ -7,14 +7,13 @@ from typing import Any, cast
 
 import voluptuous as vol
 
-from homeassistant.components.counter import DOMAIN as COUNTER_DOMAIN
-from homeassistant.components.input_number import DOMAIN as INPUT_NUMBER_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_MAXIMUM,
     CONF_METHOD,
     CONF_NAME,
+    CONF_STATE,
     UnitOfTime,
 )
 from homeassistant.core import callback
@@ -22,14 +21,25 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.schema_config_entry_flow import (
     SchemaCommonFlowHandler,
     SchemaConfigFlowHandler,
+    SchemaFlowError,
     SchemaFlowFormStep,
     SchemaOptionsFlowHandler,
 )
+from homeassistant.helpers.selector import (
+    DurationSelector,
+    DurationSelectorConfig,
+    SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+)
 
 from .const import (
-    CONF_MAX_SUB_INTERVAL,
+    CONF_CHANGEPOINT_KEYS,
+    CONF_DURATION,
+    CONF_NUMSAMPLES_KEYS,
     CONF_SOURCE_SENSOR,
-    CONF_UNIT_TIME,
+    CONF_TIMEDURATION_KEYS,
+    DEFAULT_NAME,
     DOMAIN,
     METHOD_CHANGEPOINT,
     METHOD_NUMSAMPLES,
@@ -47,14 +57,30 @@ BATCH_METHODS = [
     METHOD_NUMSAMPLES,
     METHOD_TIMEDURATION,
 ]
-ALLOWED_DOMAINS = [COUNTER_DOMAIN, INPUT_NUMBER_DOMAIN, SENSOR_DOMAIN]
+
+
+async def validate_options(
+    handler: SchemaCommonFlowHandler, user_input: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate options selected."""
+
+    if (
+        sum(param in user_input for param in CONF_NUMSAMPLES_KEYS) != 2
+        and sum(param in user_input for param in CONF_TIMEDURATION_KEYS) != 2
+        and sum(param in user_input for param in CONF_CHANGEPOINT_KEYS) != 1
+    ):
+        raise SchemaFlowError("keys_do_not_match_method")
+
+    handler.parent_handler._async_abort_entries_match({**handler.options, **user_input})  # noqa: SLF001
+
+    return user_input
 
 
 @callback
 def entity_selector_compatible(
     handler: SchemaOptionsFlowHandler,
 ) -> selector.EntitySelector:
-    """Return an entity selector which compatible entities."""
+    """Return an entity selector with compatible entities."""
     current = handler.hass.states.get(handler.options[CONF_SOURCE_SENSOR])
     unit_of_measurement = (
         current.attributes.get(ATTR_UNIT_OF_MEASUREMENT) if current else None
@@ -62,9 +88,9 @@ def entity_selector_compatible(
 
     entities = [
         ent.entity_id
-        for ent in handler.hass.states.async_all(ALLOWED_DOMAINS)
+        for ent in handler.hass.states.async_all(SENSOR_DOMAIN)
         if ent.attributes.get(ATTR_UNIT_OF_MEASUREMENT) == unit_of_measurement
-        and ent.domain in ALLOWED_DOMAINS
+        and ent.domain in SENSOR_DOMAIN
     ]
 
     return selector.EntitySelector(
@@ -73,27 +99,13 @@ def entity_selector_compatible(
 
 
 async def _get_options_dict(handler: SchemaCommonFlowHandler | None) -> dict:
-    if handler is None or not isinstance(
-        handler.parent_handler, SchemaOptionsFlowHandler
-    ):
-        entity_selector = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=ALLOWED_DOMAINS)
-        )
-    else:
-        entity_selector = entity_selector_compatible(handler.parent_handler)
-
+    # EVENTUALLY make an inference/train mode here
     return {
-        vol.Required(CONF_SOURCE_SENSOR): entity_selector,
-        vol.Required(CONF_METHOD, default=METHOD_CHANGEPOINT): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=BATCH_METHODS, translation_key=CONF_METHOD
-            ),
-        ),
-        vol.Optional(CONF_MAX_SUB_INTERVAL): selector.DurationSelector(
-            selector.DurationSelectorConfig(allow_negative=False)
+        vol.Optional(CONF_DURATION): DurationSelector(
+            DurationSelectorConfig(enable_day=True, allow_negative=False)
         ),
         vol.Optional(CONF_MAXIMUM, default=1): selector.NumberSelector(
-            selector.NumberSelectorConfig(min=0, mode=selector.NumberSelectorMode.BOX),
+            selector.NumberSelectorConfig(min=1, mode=selector.NumberSelectorMode.BOX),
         ),
     }
 
@@ -103,39 +115,57 @@ async def _get_options_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
 
 
 async def _get_config_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
-    options = await _get_options_dict(handler)
+    if handler is None or not isinstance(
+        handler.parent_handler, SchemaOptionsFlowHandler
+    ):
+        entity_selector = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain=SENSOR_DOMAIN)
+        )
+    else:
+        entity_selector = entity_selector_compatible(handler.parent_handler)
+
     return vol.Schema(
         {
-            vol.Required(CONF_NAME): selector.TextSelector(),
-            vol.Optional(
-                CONF_UNIT_TIME, default=UnitOfTime.HOURS
+            vol.Required(CONF_NAME, default=DEFAULT_NAME): TextSelector(),
+            vol.Required(CONF_SOURCE_SENSOR): entity_selector,
+            vol.Required(CONF_STATE): TextSelector(TextSelectorConfig(multiple=True)),
+            vol.Required(
+                CONF_METHOD, default=METHOD_CHANGEPOINT
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=TIME_UNITS,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                    translation_key=CONF_UNIT_TIME,
+                    options=BATCH_METHODS,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key=CONF_METHOD,
                 ),
             ),
-            **options,
         }
     )
 
 
 CONFIG_FLOW = {
-    "user": SchemaFlowFormStep(_get_config_schema),
+    "user": SchemaFlowFormStep(
+        schema=_get_config_schema,
+        next_step="options",
+    ),
+    "options": SchemaFlowFormStep(
+        schema=_get_options_schema,
+        validate_user_input=validate_options,
+    ),
 }
-
 OPTIONS_FLOW = {
-    "init": SchemaFlowFormStep(_get_options_schema),
+    "init": SchemaFlowFormStep(
+        schema=_get_options_schema,
+        validate_user_input=validate_options,
+    ),
 }
 
 
-class ConfigFlowHandler(SchemaConfigFlowHandler, domain=DOMAIN):
-    """Handle a config or options flow for Integration."""
+class MLModelFlowHandler(SchemaConfigFlowHandler, domain=DOMAIN):
+    """Handle a config or options flow for ML Model integration."""
 
     config_flow = CONFIG_FLOW
     options_flow = OPTIONS_FLOW
 
     def async_config_entry_title(self, options: Mapping[str, Any]) -> str:
         """Return config entry title."""
-        return cast(str, options["name"])
+        return cast(str, options[CONF_NAME])

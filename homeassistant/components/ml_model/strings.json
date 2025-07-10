@@ -1,36 +1,47 @@
 {
   "title": "ML Model sensor",
   "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]"
+    },
+    "error": {
+      "keys_do_not_match_method": "The sensor configuration must provide two out of 'start', 'end', 'duration'"
+    },
     "step": {
       "user": {
         "title": "Create ML Model sensor",
-        "description": "Create a sensor that uses a machine learning model.",
+        "description": "Create anomaly detection sensor that uses a machine learning model.",
         "data": {
-          "method": "Batch method",
           "name": "[%key:common::config_flow::data::name%]",
           "source": "Input sensor",
-          "unit_time": "Time unit",
-          "max_sub_interval": "Max sub-interval"
-        },
-        "data_description": {
-          "unit_time": "The output will be scaled according to the selected time unit.",
-          "max_sub_interval": "Applies time-based integration if the source did not change for this duration. Use 0 for no time-based updates."
+          "state": "State to monitor",
+          "method": "Batch method"
+        }
+      },
+      "options": {
+        "description": "Read the documentation for further details on how to configure the history stats sensor using these options.",
+        "data": {
+          "source": "[%key:component::ml_model::config::step::user::data::source%]",
+          "state": "[%key:component::ml_model::config::step::user::data::state%]",
+          "method": "[%key:component::ml_model::config::step::user::data::method%]",
+          "count_condition": "count_condition",
+          "duration": "duration"
         }
       }
     }
   },
   "options": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]"
+    },
+    "error": {
+      "keys_do_not_match_method": "[%key:component::ml_model::config::error::keys_do_not_match_method%]"
+    },
     "step": {
       "init": {
         "data": {
-          "method": "[%key:component::ml_model::config::step::user::data::method%]",
-          "source": "[%key:component::ml_model::config::step::user::data::source%]",
-          "unit_time": "[%key:component::ml_model::config::step::user::data::unit_time%]",
-          "max_sub_interval": "[%key:component::ml_model::config::step::user::data::max_sub_interval%]"
-        },
-        "data_description": {
-          "unit_time": "[%key:component::ml_model::config::step::user::data_description::unit_time%]",
-          "max_sub_interval": "[%key:component::ml_model::config::step::user::data_description::max_sub_interval%]"
+          "duration": "[%key:component::ml_model::config::step::options::data::duration%]",
+          "count_condition": "[%key:component::ml_model::config::step::options::data::count_condition%]"
         }
       }
     }
@@ -41,14 +52,6 @@
         "change_point": "Change Point Detection",
         "num_samples": "Number of Samples",
         "time_duration": "Time Duration"
-      }
-    },
-    "unit_time": {
-      "options": {
-        "s": "Seconds",
-        "min": "Minutes",
-        "h": "Hours",
-        "d": "Days"
       }
     }
   }
