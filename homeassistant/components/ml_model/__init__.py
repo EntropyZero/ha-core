@@ -17,10 +17,8 @@ from homeassistant.helpers.template import Template
 from .const import (
     CONF_CONDITION,
     CONF_DURATION,
-    CONF_END,
     CONF_METHOD,
     CONF_SOURCE_SENSOR,
-    CONF_START,
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
@@ -33,8 +31,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
     """Set up ML Model from a config entry."""
     entity_id: str = entry.options[CONF_ENTITY_ID]
     entity_states: list[str] = entry.options[CONF_STATE]
-    start: str | None = entry.options.get(CONF_START)
-    end: str | None = entry.options.get(CONF_END)
 
     duration: timedelta | None = None
     if duration_dict := entry.options.get(CONF_DURATION):
@@ -43,13 +39,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
     batch_method: str = entry.options[CONF_METHOD]
     count_condition: int = entry.options[CONF_CONDITION]
 
+    start: Template | None = Template("{{ now() }}")
+    end: Template | None = None
+
     history_stats = DataLoaderStats(
         hass,
         entity_id,
         entity_states,
-        Template(start, hass) if start else None,
-        Template(end, hass) if end else None,
         duration,
+        start,
+        end,
         batch_method,
         count_condition,
     )
