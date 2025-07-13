@@ -40,10 +40,8 @@ from .const import (
     BATCH_METHODS,
     CONF_CHANGEPOINT_KEYS,
     CONF_DURATION,
-    CONF_END,
     CONF_NUMSAMPLES_KEYS,
     CONF_SOURCE_SENSOR,
-    CONF_START,
     CONF_TIMEDURATION_KEYS,
     CONF_UNIT_TIME,
     DEFAULT_NAME,
@@ -75,14 +73,6 @@ UNIT_TIME = {
     UnitOfTime.DAYS: 24 * 60 * 60,
 }
 
-# def exactly_two_period_keys[_T: dict[str, Any]](conf: _T) -> _T:
-#     """Ensure exactly 2 of CONF_PERIOD_KEYS are provided."""
-#     if sum(param in conf for param in CONF_PERIOD_KEYS) != 2:
-#         raise vol.Invalid(
-#             "You must provide exactly 2 of the following: start, end, duration"
-#         )
-#     return conf
-
 
 def validate_method_keys[_T: dict[str, Any]](conf: _T) -> _T:
     """Ensure correct keys provided for the batch method selected."""
@@ -102,11 +92,9 @@ PLATFORM_SCHEMA = vol.All(
     SENSOR_PLATFORM_SCHEMA.extend(
         {
             vol.Required(CONF_DURATION): cv.time_period,
-            vol.Optional(CONF_END): cv.template,
             vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
             vol.Required(CONF_SOURCE_SENSOR): cv.entity_id,
             vol.Required(CONF_STATE): vol.All(cv.ensure_list, [cv.string]),
-            vol.Optional(CONF_START): cv.template,
             vol.Optional(CONF_UNIT_TIME, default=UnitOfTime.HOURS): vol.In(UNIT_TIME),
             vol.Optional(CONF_MAXIMUM, default=1): vol.Any(None, vol.Coerce(int)),
             vol.Required(CONF_METHOD, default=METHOD_CHANGEPOINT): vol.In(
@@ -154,19 +142,19 @@ async def async_setup_platform(
     count_condition = config[CONF_MAXIMUM]
     source_entity: str = config[CONF_SOURCE_SENSOR]
     entity_states: list[str] = config[CONF_STATE]
-    start: Template | None = config.get(CONF_START)
-    end: Template | None = config.get(CONF_END)
     duration: timedelta | None = config.get(CONF_DURATION)
     name: str = config[CONF_NAME]
     unique_id: str | None = config.get(CONF_UNIQUE_ID)
+    start = Template("{{ now() }}")
+    end = None
 
     history_stats = DataLoaderStats(
         hass,
         source_entity,
         entity_states,
+        duration,
         start,
         end,
-        duration,
         batch_method,
         count_condition,
     )
@@ -273,103 +261,3 @@ class DataLoaderSensor(DataLoaderSensorBase):
         if state.ready is not None and state.ready:
             self._attr_native_value = True
             return
-
-    # def _update_data_loader_state(self, send_batch: bool) -> None:
-    #     if isinstance(self._state, bool):
-    #         self._state = send_batch
-    #     else:
-    #         self._state = False
-    #     _LOGGER.debug("send batch = %s, new state = %s", send_batch, self._state)
-
-    # async def async_added_to_hass(self) -> None:
-    #     """Handle entity which will be added."""
-    #     await super().async_added_to_hass()
-
-    # handle_state_change = self._check_batch_on_state_change_callback
-    # handle_state_report = self._check_batch_on_state_report_callback
-
-    # if (
-    #     state := self.hass.states.get(self._source_entity)
-    # ) and state.state != STATE_UNAVAILABLE:
-    #     self._derive_and_set_attributes_from_state(state)
-
-    # self.async_on_remove(
-    #     async_track_state_change_event(
-    #         self.hass,
-    #         self._sensor_source_id,
-    #         handle_state_change,
-    #     )
-    # )
-    # self.async_on_remove(
-    #     async_track_state_report_event(
-    #         self.hass,
-    #         self._sensor_source_id,
-    #         handle_state_report,
-    #     )
-    # )
-
-    # @callback
-    # def _check_batch_on_state_change_callback(
-    #     self, event: Event[EventStateChangedData]
-    # ) -> None:
-    #     """Handle sensor state change."""
-    #     return self._check_batch_on_state_change(
-    #         None, event.data["old_state"], event.data["new_state"]
-    #     )
-
-    # @callback
-    # def _check_batch_on_state_report_callback(
-    #     self, event: Event[EventStateReportedData]
-    # ) -> None:
-    #     """Handle sensor state report."""
-    #     return self._check_batch_on_state_change(
-    #         event.data["old_last_reported"], None, event.data["new_state"]
-    #     )
-
-    # def _check_batch_on_state_change(
-    #     self,
-    #     old_last_reported: datetime | None,
-    #     old_state: State | None,
-    #     new_state: State | None,
-    # ) -> None:
-    #     if new_state is None:
-    #         return
-
-    #     if new_state.state == STATE_UNAVAILABLE:
-    #         self._attr_available = False
-    #         self.async_write_ha_state()
-    #         return
-
-    #     if old_state:
-    #         # state has changed, we recover old_state from the event
-    #         # old_state_state = old_state.state
-    #         old_last_reported = old_state.last_reported
-    #     # else:
-    #     # event state reported without any state change
-    #     # old_state_state = new_state.state
-
-    #     self._attr_available = True
-    #     self._derive_and_set_attributes_from_state(new_state)
-
-    #     if old_last_reported is None and old_state is None:
-    #         self.async_write_ha_state()
-    #         return
-
-    #     if TYPE_CHECKING:
-    #         assert old_last_reported is not None
-    #     elapsed_seconds = Decimal(
-    #         (new_state.last_reported - old_last_reported).total_seconds()
-    #         if self._last_data_load_trigger == _DataLoadTrigger.StateEvent
-    #         else (new_state.last_reported - self._last_data_load_time).total_seconds()
-    #     )
-
-    #     send_batch = self._method.check_batch_ready(elapsed_seconds)
-
-    #     self._update_data_loader_state(send_batch)
-    #     self.async_write_ha_state()
-
-    # @property
-    # def native_value(self) -> bool | None:
-    #     """Return the state of the data loader \"sensor\"."""
-
-    #     return self._state

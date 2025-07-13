@@ -46,9 +46,9 @@ class DataLoaderStats:
         hass: HomeAssistant,
         entity_id: str,
         entity_states: list[str],
+        duration: datetime.timedelta | None,
         start: Template | None,
         end: Template | None,
-        duration: datetime.timedelta | None,
         batch_method: str,
         count_condition: int,
     ) -> None:
