@@ -11,7 +11,6 @@ from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     CONF_MAXIMUM,
-    CONF_METHOD,
     CONF_NAME,
     CONF_STATE,
     UnitOfTime,
@@ -36,6 +35,7 @@ from homeassistant.helpers.selector import (
 from .const import (
     CONF_CHANGEPOINT_KEYS,
     CONF_DURATION,
+    CONF_METHOD,
     CONF_NUMSAMPLES_KEYS,
     CONF_SOURCE_SENSOR,
     CONF_TIMEDURATION_KEYS,
@@ -149,13 +149,13 @@ CONFIG_FLOW = {
     ),
     "options": SchemaFlowFormStep(
         schema=_get_options_schema,
-        validate_user_input=validate_options,
+        # validate_user_input=validate_options,
     ),
 }
 OPTIONS_FLOW = {
     "init": SchemaFlowFormStep(
         schema=_get_options_schema,
-        validate_user_input=validate_options,
+        # validate_user_input=validate_options,
     ),
 }
 

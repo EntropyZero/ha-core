@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_ENTITY_ID, CONF_STATE
+from homeassistant.const import CONF_STATE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device import (
     async_entity_id_to_device_id,
@@ -29,7 +29,7 @@ type DataLoaderConfigEntry = ConfigEntry[DataLoaderUpdateCoordinator]
 
 async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -> bool:
     """Set up ML Model from a config entry."""
-    entity_id: str = entry.options[CONF_ENTITY_ID]
+    entity_id: str = entry.options[CONF_SOURCE_SENSOR]
     entity_states: list[str] = entry.options[CONF_STATE]
 
     duration: timedelta | None = None
@@ -37,9 +37,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
         duration = timedelta(**duration_dict)
 
     batch_method: str = entry.options[CONF_METHOD]
-    count_condition: int = entry.options[CONF_CONDITION]
-
-    start: Template | None = Template("{{ now() }}")
+    count_condition: timedelta | int | None = entry.options.get(CONF_CONDITION)
+    if count_condition is None:
+        count_condition = 0
+    start: Template = Template("{{ now() }}", hass=hass)
     end: Template | None = None
 
     history_stats = DataLoaderStats(

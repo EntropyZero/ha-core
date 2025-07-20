@@ -25,7 +25,6 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.device import async_device_info_to_link_from_entity
 from homeassistant.helpers.entity_platform import (
     AddConfigEntryEntitiesCallback,
     AddEntitiesCallback,
@@ -114,8 +113,13 @@ async def async_setup_entry(
 ) -> None:
     """Initialize config entry."""
 
-    coordinator = entry.runtime_data
-    source_entity: str = entry.options[CONF_SOURCE_SENSOR]
+    coordinator = entry.runtime_data  # run_time_data???
+    # source_entity: str = entry.options[CONF_SOURCE_SENSOR]
+    # registry = er.async_get(hass)
+    # source_entity = er.async_validate_entity_id(
+    # registry, entry.options[CONF_SOURCE_SENSOR]
+    # )
+    source_entity = entry.options[CONF_SOURCE_SENSOR]
     async_add_entities(
         [
             DataLoaderSensor(
@@ -138,15 +142,15 @@ async def async_setup_platform(
     """Set up the data loader sensor."""
     await async_setup_reload_service(hass, DOMAIN, PLATFORMS)
 
-    batch_method = config[CONF_METHOD]
-    count_condition = config[CONF_MAXIMUM]
+    batch_method: str = config[CONF_METHOD]
+    count_condition: timedelta | int = config[CONF_MAXIMUM]
     source_entity: str = config[CONF_SOURCE_SENSOR]
     entity_states: list[str] = config[CONF_STATE]
+    start: Template = Template("{{ now() }}")
+    end: Template | None = None
     duration: timedelta | None = config.get(CONF_DURATION)
-    name: str = config[CONF_NAME]
+    name: str | None = config.get(CONF_NAME)
     unique_id: str | None = config.get(CONF_UNIQUE_ID)
-    start = Template("{{ now() }}")
-    end = None
 
     history_stats = DataLoaderStats(
         hass,
@@ -158,6 +162,8 @@ async def async_setup_platform(
         batch_method,
         count_condition,
     )
+    if name is None:
+        name = f"{source_entity} data loader"
     coordinator = DataLoaderUpdateCoordinator(hass, history_stats, None, name)
     await coordinator.async_refresh()
     if not coordinator.last_update_success:
@@ -223,10 +229,10 @@ class DataLoaderSensor(DataLoaderSensorBase):
         super().__init__(coordinator, name)
         # self._attr_native_unit_of_measurement = UNITS[sensor_type]
         # self._type = sensor_type
-        self._attr_device_info = async_device_info_to_link_from_entity(
-            hass,
-            source_entity_id,
-        )
+        # self._attr_device_info = async_device_info_to_link_from_entity(
+        #     hass,
+        #     source_entity_id,
+        # )
         self._attr_unique_id = unique_id
         self._sensor_source_id: str = source_entity_id
         self._attr_name = (
@@ -252,8 +258,9 @@ class DataLoaderSensor(DataLoaderSensorBase):
         state = (
             self.coordinator.data
         )  # setting native value of data loader based off the state of the coordinator
-        if state is None or state.seconds_matched is None:
-            self._attr_native_value = None
+        # _LOGGER.debug("Printing state of coordinator: %s", state)
+        if state is None or state.ready is False:
+            self._attr_native_value = False
             return
 
         # if count condition is met, set native value to True
