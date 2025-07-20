@@ -64,6 +64,8 @@ class DataLoaderStats:
         else:
             end = Template("{{ now() }}", hass=self.hass)
             self._period = async_calculate_period(None, start, end)
+            # calculate the duration based on start and end
+            self._duration = self._period[1] - self._period[0]
             self._method = _BatchMethod.from_name(
                 batch_method, type(count_condition).__name__
             )  # count condition is passed here temp to get the type
@@ -81,9 +83,13 @@ class DataLoaderStats:
         self._history_previous_period: list[DataLoaderState] = []
         self._has_recorder_data = False
         self._entity_states = set(entity_states)  # ??
-        self._duration = duration
+        # self._duration = duration
         self._start = start
         self._end = end
+        _LOGGER.debug(
+            "Upon init of dataloaderstats, the count condition is %s",
+            self._count_condition,
+        )
 
     async def async_update(
         self, event: Event[EventStateChangedData] | None
@@ -154,17 +160,22 @@ class DataLoaderStats:
             )
             return self._state
 
-        elapsed_seconds = event_timestamp - period_start_timestamp
+        elapsed_seconds = int(event_timestamp - period_start_timestamp)
 
         # Check if ready to send batch
+        if new_data is True:
+            _LOGGER.debug("New data received")
+        else:
+            _LOGGER.debug("No new data received, skipping update")
         new_state_of_data_loader: DataLoaderStatsState = self._method.check_batch_ready(
-            int(elapsed_seconds), new_data, self._state, self._count_condition
+            elapsed_seconds, new_data, self._state, self._count_condition
         )
         send_batch = new_state_of_data_loader.ready
         # if send_batch is True, set a new period
         if send_batch:
             # Set new period if batch is ready
-            self._period = async_calculate_period(self._duration, self._end, None)
+            if self._duration is not None:
+                self._period = async_calculate_period(self._duration, self._end, None)
             # Convert times to UTC
             self._period = (
                 dt_util.as_utc(self._period[0]),
