@@ -12,7 +12,6 @@ from homeassistant.helpers.device import (
     async_remove_stale_devices_links_keep_entity_device,
 )
 from homeassistant.helpers.helper_integration import async_handle_source_entity_changes
-from homeassistant.helpers.template import Template
 
 from .const import (
     CONF_CONDITION,
@@ -22,7 +21,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
-from .data import DataLoaderStats
+from .data import DataLoader
 
 type DataLoaderConfigEntry = ConfigEntry[DataLoaderUpdateCoordinator]
 
@@ -37,19 +36,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
         duration = timedelta(**duration_dict)
 
     batch_method: str = entry.options[CONF_METHOD]
-    count_condition: timedelta | int | None = entry.options.get(CONF_CONDITION)
-    if count_condition is None:
-        count_condition = 0
-    start: Template = Template("{{ now() }}", hass=hass)
-    end: Template | None = None
 
-    history_stats = DataLoaderStats(
+    count_condition: int | None = entry.options[CONF_CONDITION]
+    # if type(count_condition) is float:
+    # count_condition = int(count_condition)
+
+    history_stats = DataLoader(
         hass,
         entity_id,
         entity_states,
         duration,
-        start,
-        end,
         batch_method,
         count_condition,
     )

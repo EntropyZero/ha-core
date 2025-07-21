@@ -10,7 +10,6 @@ import voluptuous as vol
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
-    CONF_MAXIMUM,
     CONF_NAME,
     CONF_STATE,
     UnitOfTime,
@@ -34,6 +33,7 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_CHANGEPOINT_KEYS,
+    CONF_CONDITION,
     CONF_DURATION,
     CONF_METHOD,
     CONF_NUMSAMPLES_KEYS,
@@ -104,7 +104,7 @@ async def _get_options_dict(handler: SchemaCommonFlowHandler | None) -> dict:
         vol.Optional(CONF_DURATION): DurationSelector(
             DurationSelectorConfig(enable_day=True, allow_negative=False)
         ),
-        vol.Optional(CONF_MAXIMUM, default=1): selector.NumberSelector(
+        vol.Optional(CONF_CONDITION, default=1): selector.NumberSelector(
             selector.NumberSelectorConfig(min=1, mode=selector.NumberSelectorMode.BOX),
         ),
     }

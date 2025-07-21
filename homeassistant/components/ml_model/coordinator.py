@@ -19,7 +19,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.start import async_at_start
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .data import DataLoaderStats, DataLoaderStatsState
+from .data import DataLoader, DataLoaderStatsState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,15 +34,11 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderStatsState]):
     def __init__(
         self,
         hass: HomeAssistant,
-        history_stats: DataLoaderStats,
+        history_stats: DataLoader,
         config_entry: ConfigEntry | None,
         name: str,
     ) -> None:
         """Initialize DataUpdateCoordinator."""
-        self._history_stats = history_stats
-        self._subscriber_count = 0
-        self._at_start_listener: CALLBACK_TYPE | None = None
-        self._track_events_listener: CALLBACK_TYPE | None = None
         super().__init__(
             hass,
             _LOGGER,
@@ -50,11 +46,16 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderStatsState]):
             # name of the data for logging purposes
             name="Data Loader Data",
             update_interval=UPDATE_INTERVAL,
+            # even when the state has not changed, we want to update
             always_update=True,
         )
+        self._history_stats = history_stats
+        self._subscriber_count = 0
+        self._at_start_listener: CALLBACK_TYPE | None = None
+        self._track_events_listener: CALLBACK_TYPE | None = None
 
     # @callback
-    # def async_set_updated_data(self, data: _DataT) -> None:
+    # def async_set_updated_data(self, data: DataLoaderStatsState) -> None:
     #     """Manually update data, notify listeners and reset refresh interval."""
     #     self._async_unsub_refresh()
     #     self._debounced_refresh.async_cancel()

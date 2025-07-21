@@ -15,7 +15,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    CONF_MAXIMUM,
     CONF_METHOD,
     CONF_NAME,
     CONF_STATE,
@@ -30,7 +29,6 @@ from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
 )
 from homeassistant.helpers.reload import async_setup_reload_service
-from homeassistant.helpers.template import Template
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -38,6 +36,7 @@ from . import DataLoaderConfigEntry
 from .const import (
     BATCH_METHODS,
     CONF_CHANGEPOINT_KEYS,
+    CONF_CONDITION,
     CONF_DURATION,
     CONF_NUMSAMPLES_KEYS,
     CONF_SOURCE_SENSOR,
@@ -51,7 +50,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
-from .data import DataLoaderStats
+from .data import DataLoader
 
 UNITS: dict[str, str] = {
     METHOD_TIMEDURATION: UnitOfTime.HOURS,
@@ -95,7 +94,7 @@ PLATFORM_SCHEMA = vol.All(
             vol.Required(CONF_SOURCE_SENSOR): cv.entity_id,
             vol.Required(CONF_STATE): vol.All(cv.ensure_list, [cv.string]),
             vol.Optional(CONF_UNIT_TIME, default=UnitOfTime.HOURS): vol.In(UNIT_TIME),
-            vol.Optional(CONF_MAXIMUM, default=1): vol.Any(None, vol.Coerce(int)),
+            vol.Optional(CONF_CONDITION, default=1): vol.Any(None, vol.Coerce(int)),
             vol.Required(CONF_METHOD, default=METHOD_CHANGEPOINT): vol.In(
                 BATCH_METHODS
             ),
@@ -120,6 +119,7 @@ async def async_setup_entry(
     # registry, entry.options[CONF_SOURCE_SENSOR]
     # )
     source_entity = entry.options[CONF_SOURCE_SENSOR]
+    # does this need to be the source entity of the coordinator?
     async_add_entities(
         [
             DataLoaderSensor(
@@ -143,22 +143,20 @@ async def async_setup_platform(
     await async_setup_reload_service(hass, DOMAIN, PLATFORMS)
 
     batch_method: str = config[CONF_METHOD]
-    count_condition: timedelta | int = config[CONF_MAXIMUM]
+    count_condition: int | None = config[CONF_CONDITION]
     source_entity: str = config[CONF_SOURCE_SENSOR]
     entity_states: list[str] = config[CONF_STATE]
-    start: Template = Template("{{ now() }}")
-    end: Template | None = None
+    # start: Template = Template("{{ now() }}")
+    # end: Template | None = None
     duration: timedelta | None = config.get(CONF_DURATION)
     name: str | None = config.get(CONF_NAME)
     unique_id: str | None = config.get(CONF_UNIQUE_ID)
 
-    history_stats = DataLoaderStats(
+    history_stats = DataLoader(
         hass,
         source_entity,
         entity_states,
         duration,
-        start,
-        end,
         batch_method,
         count_condition,
     )
