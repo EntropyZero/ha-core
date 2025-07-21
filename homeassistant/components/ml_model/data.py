@@ -118,26 +118,21 @@ class DataLoader:
         utc_now = dt_util.utcnow()
         now_timestamp = floored_timestamp(utc_now)
 
-        if event is None:
-            # If no event is provided, we cannot process it yet
-            _LOGGER.debug("No event provided, returning current state")
-            # event_timestamp = floored_timestamp(dt_util.utcnow())
-            return self._state
-
         if event and (new_state := event.data["new_state"]) is not None:
             event_timestamp = floored_timestamp(dt_util.as_utc(new_state.last_changed))
             _LOGGER.debug("event timestamp is %s", event_timestamp)
         else:
-            event_timestamp = floored_timestamp(
-                dt_util.utcnow()
-            )  # get last state instead??? CALL DataLoaderState.last_changed which is of type float
+            event_timestamp = (
+                self._history_current_period[-1].last_changed
+                if self._history_current_period
+                else floored_timestamp(dt_util.utcnow())
+            )
+
             _LOGGER.debug(
                 "No new state in event, using current time as bandaid CHANGE THIS LATER %s, also event.data[new_state] is %s to check",
                 event_timestamp,
-                event.data["new_state"],
+                event.data["new_state"] if event else "None",
             )
-            # can't just return self._state here because might need to let time duration method store state
-            return self._state  # for now
 
         # If we end up querying data from the recorder when we get triggered by a new state
         # change event, it is possible this function could be reentered a second time before
@@ -150,7 +145,7 @@ class DataLoader:
         if event_timestamp > now_timestamp:
             # If the event timestamp is in the future, we cannot process it yet
             _LOGGER.debug(
-                "Skipping future timestamp %s (now %s)",
+                "Skipping- either future timestamp %s (now %s), or event_timestamp not calculated",
                 event_timestamp,
                 now_timestamp,
             )
@@ -159,42 +154,45 @@ class DataLoader:
         if event_timestamp < period_start_timestamp:
             # If the event timestamp is before the period start, we cannot process
             _LOGGER.debug(
-                "Skipping event timestamp %s (period start %s)",
+                "Skipping- event timestamp %s is before period start %s",
                 event_timestamp,
                 period_start_timestamp,
             )
             return self._state
 
-        # Appending data to batch only if state has changed
-        new_data = False
-        # if event and (new_state := event.data["new_state"]) is not None:
-        if period_start_timestamp <= floored_timestamp(
-            dt_util.as_utc(new_state.last_changed)
-        ):
-            _LOGGER.debug("New state is %s", new_state.state)
-            self._history_current_period.append(
-                DataLoaderState(new_state.state, new_state.last_changed_timestamp)
-            )
-            new_data = True
-
         # Calculate elapsed time to pass to batch methods
         elapsed_seconds = int(event_timestamp - period_start_timestamp)
-
-        # Check if ready to send batch
-        if new_data is True:
-            _LOGGER.debug("New data received")
-        else:
-            _LOGGER.debug("No new data received")
-
+        source_data_changed = new_state is not None  # stores either true or false
         new_state_of_data_loader: DataLoaderStatsState = self._method.check_batch_ready(
             elapsed_seconds,
-            new_data,
+            source_data_changed,
             self._state,
             self._count_condition,
             self._duration,
             self._period,
         )
         send_batch = new_state_of_data_loader.ready
+
+        # update the data stored in a batch
+        if new_state is not None:
+            _LOGGER.debug("New state is %s", new_state.state)
+
+            self._history_current_period.append(
+                DataLoaderState(new_state.state, event_timestamp)
+            )
+
+        else:
+            curr_src_data = (
+                self._history_current_period[-1].source_sensor_state
+                if self._history_current_period
+                else None
+            )
+
+            if curr_src_data is not None:
+                _LOGGER.debug("Current state is %s", curr_src_data)
+                self._history_current_period.append(
+                    DataLoaderState(curr_src_data, now_timestamp)
+                )
 
         # if send_batch is True, set a new period
         if send_batch:
@@ -239,7 +237,7 @@ class _BatchMethod(ABC):
     def check_batch_ready(
         self,
         elapsed_time: int,
-        new_data: bool,
+        source_data_changed: bool,
         current_state: DataLoaderStatsState,
         count_condition: int | None,
         duration: datetime.timedelta | None,
@@ -252,7 +250,7 @@ class _ChangePoint(_BatchMethod):
     def check_batch_ready(
         self,
         elapsed_time: int,
-        new_data: bool,
+        source_data_changed: bool,
         current_state: DataLoaderStatsState,
         count_condition: int | None,
         duration: datetime.timedelta | None,
@@ -274,7 +272,7 @@ class _NumSamples(_BatchMethod):
     def check_batch_ready(
         self,
         elapsed_time: int,
-        new_data: bool,
+        source_data_changed: bool,
         current_state: DataLoaderStatsState,
         count_condition: int | None,
         duration: datetime.timedelta | None,
@@ -295,7 +293,10 @@ class _NumSamples(_BatchMethod):
         # Add a queue here potentially to hold the new data that can't be processed yet
 
         new_seconds_matched, new_match_count = self._increment_counter(
-            elapsed_time, new_data, current_match_count, current_seconds_matched
+            elapsed_time,
+            source_data_changed,
+            current_match_count,
+            current_seconds_matched,
         )
 
         update_state = DataLoaderStatsState(
@@ -331,7 +332,7 @@ class _TimeDuration(_BatchMethod):
     def check_batch_ready(
         self,
         elapsed_time: int,
-        new_data: bool,
+        source_data_changed: bool,
         current_state: DataLoaderStatsState,
         count_condition: int | None,
         duration: datetime.timedelta | None,
@@ -362,7 +363,10 @@ class _TimeDuration(_BatchMethod):
         # Add a queue here potentially to hold the new data that can't be processed yet
 
         new_seconds_matched, new_match_count = self._increment_counter(
-            elapsed_time, new_data, current_match_count, current_seconds_matched
+            elapsed_time,
+            source_data_changed,
+            current_match_count,
+            current_seconds_matched,
         )
 
         # initialize a new state

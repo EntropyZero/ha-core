@@ -38,8 +38,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
     batch_method: str = entry.options[CONF_METHOD]
 
     count_condition: int | None = entry.options[CONF_CONDITION]
-    # if type(count_condition) is float:
-    # count_condition = int(count_condition)
+    if type(count_condition) is float:
+        count_condition = int(count_condition)
 
     history_stats = DataLoader(
         hass,
