@@ -21,7 +21,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
-from .data import DataLoader
+from .DataLoader import DataLoader
 
 type DataLoaderConfigEntry = ConfigEntry[DataLoaderUpdateCoordinator]
 

@@ -19,16 +19,15 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.start import async_at_start
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .data import DataLoader, DataLoaderStatsState
+from .data.DataLoaderState import DataLoaderState
+from .DataLoader import DataLoader
 
 _LOGGER = logging.getLogger(__name__)
-
-# _DataT = TypeVar("_DataT", default=dict[str, Any])
 
 UPDATE_INTERVAL = timedelta(minutes=1)
 
 
-class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderStatsState]):
+class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderState]):
     """DataUpdateCoordinator for Data Loader stats."""
 
     def __init__(
@@ -44,7 +43,7 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderStatsState]):
             _LOGGER,
             config_entry=config_entry,
             # name of the data for logging purposes
-            name="Data Loader Data",
+            name="Data Loader",
             update_interval=UPDATE_INTERVAL,
             # even when the state has not changed, we want to update
             always_update=True,
@@ -53,24 +52,6 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderStatsState]):
         self._subscriber_count = 0
         self._at_start_listener: CALLBACK_TYPE | None = None
         self._track_events_listener: CALLBACK_TYPE | None = None
-
-    # @callback
-    # def async_set_updated_data(self, data: DataLoaderStatsState) -> None:
-    #     """Manually update data, notify listeners and reset refresh interval."""
-    #     self._async_unsub_refresh()
-    #     self._debounced_refresh.async_cancel()
-
-    #     self.data = data
-    #     self.last_update_success = True
-    #     self.logger.debug(
-    #         "Manually updated %s data",
-    #         self.name,
-    #     )
-
-    #     if self._listeners:
-    #         self._schedule_refresh()
-
-    #     self.async_update_listeners()
 
     @callback
     def async_setup_state_listener(self) -> CALLBACK_TYPE:
@@ -122,7 +103,7 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderStatsState]):
             await self._history_stats.async_update(event)
         )  # from superclass
 
-    async def _async_update_data(self) -> DataLoaderStatsState:
+    async def _async_update_data(self) -> DataLoaderState:
         """Fetch update the history stats state."""
         try:
             # my coordinator is stateful so it needs to update its dataclass

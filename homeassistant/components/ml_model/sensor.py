@@ -50,7 +50,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
-from .data import DataLoader
+from .DataLoader import DataLoader
 
 UNITS: dict[str, str] = {
     METHOD_TIMEDURATION: UnitOfTime.HOURS,
@@ -112,14 +112,8 @@ async def async_setup_entry(
 ) -> None:
     """Initialize config entry."""
 
-    coordinator = entry.runtime_data  # run_time_data???
-    # source_entity: str = entry.options[CONF_SOURCE_SENSOR]
-    # registry = er.async_get(hass)
-    # source_entity = er.async_validate_entity_id(
-    # registry, entry.options[CONF_SOURCE_SENSOR]
-    # )
+    coordinator = entry.runtime_data
     source_entity = entry.options[CONF_SOURCE_SENSOR]
-    # does this need to be the source entity of the coordinator?
     async_add_entities(
         [
             DataLoaderSensor(
@@ -161,7 +155,7 @@ async def async_setup_platform(
         count_condition,
     )
     if name is None:
-        name = f"{source_entity} data loader"
+        name = f"{source_entity} model"
     coordinator = DataLoaderUpdateCoordinator(hass, history_stats, None, name)
     await coordinator.async_refresh()
     if not coordinator.last_update_success:
@@ -233,9 +227,7 @@ class DataLoaderSensor(DataLoaderSensorBase):
         # )
         self._attr_unique_id = unique_id
         self._sensor_source_id: str = source_entity_id
-        self._attr_name = (
-            name if name is not None else f"{source_entity_id} data loader"
-        )
+        self._attr_name = name if name is not None else f"{source_entity_id} model"
         self._attr_icon = "mdi:chart-histogram"
         self._last_data_load_time: datetime = datetime.now(tz=UTC)
         self._process_update()  # determines the attr native value of dataloader itself, which is a boolean
