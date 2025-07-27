@@ -9,10 +9,10 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant
 from homeassistant.helpers.template import Template
 from homeassistant.util import dt as dt_util
 
-from .batch_methods.BatchMethod import BatchMethod
+from .batch_methods import BatchMethod
 from .const import METHOD_CHANGEPOINT, METHOD_NUMSAMPLES, METHOD_TIMEDURATION
-from .data.BatchData import BatchData
-from .data.DataLoaderState import DataLoaderState
+from .data.batch_data import BatchData
+from .data.data_loader_state import DataLoaderState
 from .helpers import async_calculate_period, floored_timestamp
 
 MIN_TIME_UTC = datetime.datetime.min.replace(tzinfo=dt_util.UTC)

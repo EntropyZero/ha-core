@@ -21,7 +21,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
-from .DataLoader import DataLoader
+from .data_loader import DataLoader
 
 type DataLoaderConfigEntry = ConfigEntry[DataLoaderUpdateCoordinator]
 
@@ -41,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
     if type(count_condition) is float:
         count_condition = int(count_condition)
 
-    history_stats = DataLoader(
+    data_loader = DataLoader(
         hass,
         entity_id,
         entity_states,
@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DataLoaderConfigEntry) -
         batch_method,
         count_condition,
     )
-    coordinator = DataLoaderUpdateCoordinator(hass, history_stats, entry, entry.title)
+    coordinator = DataLoaderUpdateCoordinator(hass, data_loader, entry, entry.title)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 

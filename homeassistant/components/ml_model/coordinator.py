@@ -19,8 +19,8 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.start import async_at_start
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .data.DataLoaderState import DataLoaderState
-from .DataLoader import DataLoader
+from .data.data_loader_state import DataLoaderState
+from .data_loader import DataLoader
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderState]):
     def __init__(
         self,
         hass: HomeAssistant,
-        history_stats: DataLoader,
+        data_loader: DataLoader,
         config_entry: ConfigEntry | None,
         name: str,
     ) -> None:
@@ -48,7 +48,7 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderState]):
             # even when the state has not changed, we want to update
             always_update=True,
         )
-        self._history_stats = history_stats
+        self._data_loader = data_loader
         self._subscriber_count = 0
         self._at_start_listener: CALLBACK_TYPE | None = None
         self._track_events_listener: CALLBACK_TYPE | None = None
@@ -92,7 +92,7 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderState]):
         """Handle hass starting and start tracking events."""
         self._at_start_listener = None
         self._track_events_listener = async_track_state_change_event(
-            self.hass, [self._history_stats.entity_id], self._async_update_from_event
+            self.hass, [self._data_loader.entity_id], self._async_update_from_event
         )
 
     async def _async_update_from_event(
@@ -100,16 +100,16 @@ class DataLoaderUpdateCoordinator(DataUpdateCoordinator[DataLoaderState]):
     ) -> None:
         """Process an update from an event."""
         self.async_set_updated_data(
-            await self._history_stats.async_update(event)
+            await self._data_loader.async_update(event)
         )  # from superclass
 
     async def _async_update_data(self) -> DataLoaderState:
-        """Fetch update the history stats state."""
+        """Fetch update the data loader state."""
         try:
             # my coordinator is stateful so it needs to update its dataclass
             _LOGGER.debug("DataLoaderUpdateCoordinator updating data")
             # when returning, ends up being stored in self.data
-            return await self._history_stats.async_update(None)
+            return await self._data_loader.async_update(None)
 
         except (TemplateError, TypeError, ValueError) as ex:
             raise UpdateFailed(ex) from ex

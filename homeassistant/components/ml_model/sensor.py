@@ -50,7 +50,7 @@ from .const import (
     PLATFORMS,
 )
 from .coordinator import DataLoaderUpdateCoordinator
-from .DataLoader import DataLoader
+from .data_loader import DataLoader
 
 UNITS: dict[str, str] = {
     METHOD_TIMEDURATION: UnitOfTime.HOURS,
@@ -116,7 +116,7 @@ async def async_setup_entry(
     source_entity = entry.options[CONF_SOURCE_SENSOR]
     async_add_entities(
         [
-            DataLoaderSensor(
+            MLModelSensor(
                 hass,
                 coordinator,
                 entry.title,
@@ -146,7 +146,7 @@ async def async_setup_platform(
     name: str | None = config.get(CONF_NAME)
     unique_id: str | None = config.get(CONF_UNIQUE_ID)
 
-    history_stats = DataLoader(
+    data_loader = DataLoader(
         hass,
         source_entity,
         entity_states,
@@ -156,11 +156,11 @@ async def async_setup_platform(
     )
     if name is None:
         name = f"{source_entity} model"
-    coordinator = DataLoaderUpdateCoordinator(hass, history_stats, None, name)
+    coordinator = DataLoaderUpdateCoordinator(hass, data_loader, None, name)
     await coordinator.async_refresh()
     if not coordinator.last_update_success:
         raise PlatformNotReady from coordinator.last_exception
-    dataloader = DataLoaderSensor(
+    mlmodel = MLModelSensor(
         hass,
         coordinator,
         name,
@@ -168,13 +168,11 @@ async def async_setup_platform(
         unique_id,
     )
 
-    async_add_entities([dataloader])
+    async_add_entities([mlmodel])
 
 
-class DataLoaderSensorBase(
-    CoordinatorEntity[DataLoaderUpdateCoordinator], SensorEntity
-):
-    """Base class for a DataLoader sensor."""
+class MLModelSensorBase(CoordinatorEntity[DataLoaderUpdateCoordinator], SensorEntity):
+    """Base class for a MLModel sensor."""
 
     _attr_icon = ICON
 
@@ -183,7 +181,7 @@ class DataLoaderSensorBase(
         coordinator: DataLoaderUpdateCoordinator,
         name: str,
     ) -> None:
-        """Initialize the DataLoader sensor base class."""
+        """Initialize the MLModel sensor base class."""
         super().__init__(coordinator)
         self._attr_name = name
 
@@ -203,8 +201,8 @@ class DataLoaderSensorBase(
         """Process an update from the coordinator."""
 
 
-class DataLoaderSensor(DataLoaderSensorBase):
-    """Representation of a data loader sensor."""
+class MLModelSensor(MLModelSensorBase):
+    """Representation of a MLModel sensor."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     # _attr_should_poll = False
@@ -230,7 +228,7 @@ class DataLoaderSensor(DataLoaderSensorBase):
         self._attr_name = name if name is not None else f"{source_entity_id} model"
         self._attr_icon = "mdi:chart-histogram"
         self._last_data_load_time: datetime = datetime.now(tz=UTC)
-        self._process_update()  # determines the attr native value of dataloader itself, which is a boolean
+        self._process_update()  # determines the attr native value of the model itself, which is a boolean
 
     def _derive_and_set_attributes_from_state(self, source_state: State) -> None:
         # If the source has no defined unit we cannot derive a unit
@@ -253,8 +251,8 @@ class DataLoaderSensor(DataLoaderSensorBase):
             self._attr_native_value = False
             return
 
-        # if count condition is met, set native value to True
-        # eventually set to False when the model receives the new data
+        # if count condition is met, set native value to True for at least 1 second
+        # eventually and set to False once the model starts processing the data
         if state.ready is not None and state.ready:
             self._attr_native_value = True
             return
