@@ -114,9 +114,10 @@ async def async_setup_entry(
 
     coordinator = entry.runtime_data
     source_entity = entry.options[CONF_SOURCE_SENSOR]
+
     async_add_entities(
         [
-            MLModelSensor(
+            AnomalyDetectorView(
                 hass,
                 coordinator,
                 entry.title,
@@ -127,85 +128,140 @@ async def async_setup_entry(
     )
 
 
-async def async_setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    async_add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
-    """Set up the data loader sensor."""
-    await async_setup_reload_service(hass, DOMAIN, PLATFORMS)
+# async def async_setup_platform(
+#     hass: HomeAssistant,
+#     config: ConfigType,
+#     async_add_entities: AddEntitiesCallback,
+#     discovery_info: DiscoveryInfoType | None = None,
+# ) -> None:
+#     """Set up the data loader sensor."""
+#     await async_setup_reload_service(hass, DOMAIN, PLATFORMS)
 
-    batch_method: str = config[CONF_METHOD]
-    count_condition: int | None = config[CONF_CONDITION]
-    source_entity: str = config[CONF_SOURCE_SENSOR]
-    entity_states: list[str] = config[CONF_STATE]
-    # start: Template = Template("{{ now() }}")
-    # end: Template | None = None
-    duration: timedelta | None = config.get(CONF_DURATION)
-    name: str | None = config.get(CONF_NAME)
-    unique_id: str | None = config.get(CONF_UNIQUE_ID)
+#     batch_method: str = config[CONF_METHOD]
+#     count_condition: int | None = config[CONF_CONDITION]
+#     source_entity: str = config[CONF_SOURCE_SENSOR]
+#     entity_states: list[str] = config[CONF_STATE]
+#     duration: timedelta | None = config.get(CONF_DURATION)
+#     name: str | None = config.get(CONF_NAME)
+#     unique_id: str | None = config.get(CONF_UNIQUE_ID)
 
-    data_loader = DataLoader(
-        hass,
-        source_entity,
-        entity_states,
-        duration,
-        batch_method,
-        count_condition,
-    )
-    if name is None:
-        name = f"{source_entity} model"
-    coordinator = DataLoaderUpdateCoordinator(hass, data_loader, None, name)
-    await coordinator.async_refresh()
-    if not coordinator.last_update_success:
-        raise PlatformNotReady from coordinator.last_exception
-    mlmodel = MLModelSensor(
-        hass,
-        coordinator,
-        name,
-        source_entity,
-        unique_id,
-    )
+#     data_loader = DataLoader(
+#         hass,
+#         source_entity,
+#         entity_states,
+#         duration,
+#         batch_method,
+#         count_condition,
+#     )
+#     if name is None:
+#         name = f"{source_entity} model"
+#     coordinator = DataLoaderUpdateCoordinator(hass, data_loader, None, name)
+#     await coordinator.async_refresh()
+#     if not coordinator.last_update_success:
+#         raise PlatformNotReady from coordinator.last_exception
+#     anom_detect_view = AnomalyDetectorView(
+#         hass,
+#         coordinator,
+#         name,
+#         source_entity,
+#         unique_id,
+#     )
 
-    async_add_entities([mlmodel])
+#     async_add_entities([anom_detect_view])
 
 
-class MLModelSensorBase(CoordinatorEntity[DataLoaderUpdateCoordinator], SensorEntity):
-    """Base class for a MLModel sensor."""
+# class MLModelSensorBase(CoordinatorEntity[DataLoaderUpdateCoordinator], SensorEntity):
+#     """Base class for a MLModel sensor."""
 
-    _attr_icon = ICON
+#     _attr_icon = ICON
 
-    def __init__(
-        self,
-        coordinator: DataLoaderUpdateCoordinator,
-        name: str,
-    ) -> None:
-        """Initialize the MLModel sensor base class."""
-        super().__init__(coordinator)
-        self._attr_name = name
+#     def __init__(
+#         self,
+#         coordinator: DataLoaderUpdateCoordinator,
+#         name: str,
+#     ) -> None:
+#         """Initialize the MLModel sensor base class."""
+#         super().__init__(coordinator)
+#         self._attr_name = name
 
-    async def async_added_to_hass(self) -> None:
-        """Entity has been added to hass."""
-        await super().async_added_to_hass()
-        self.async_on_remove(self.coordinator.async_setup_state_listener())
+#     async def async_added_to_hass(self) -> None:
+#         """Entity has been added to hass."""
+#         await super().async_added_to_hass()
+#         self.async_on_remove(self.coordinator.async_setup_state_listener())
 
-    def _handle_coordinator_update(self) -> None:
-        """Set attrs from value and count."""
-        self._process_update()
-        super()._handle_coordinator_update()
+#     def _handle_coordinator_update(self) -> None:
+#         """Set attrs from value and count."""
+#         self._process_update()
+#         super()._handle_coordinator_update()
 
-    @callback
-    @abstractmethod
-    def _process_update(self) -> None:
-        """Process an update from the coordinator."""
+#     @callback
+#     @abstractmethod
+#     def _process_update(self) -> None:
+#         """Process an update from the coordinator."""
 
 
-class MLModelSensor(MLModelSensorBase):
-    """Representation of a MLModel sensor."""
+# class MLModelSensor(MLModelSensorBase):
+#     """Representation of a MLModel sensor."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    # _attr_should_poll = False
+#     _attr_state_class = SensorStateClass.MEASUREMENT
+#     # _attr_should_poll = False
+
+#     def __init__(
+#         self,
+#         hass: HomeAssistant,
+#         coordinator: DataLoaderUpdateCoordinator,
+#         name: str,
+#         source_entity_id: str,
+#         unique_id: str | None,
+#     ) -> None:
+#         """Initialize the data loader sensor."""
+#         super().__init__(coordinator, name)
+#         # self._attr_native_unit_of_measurement = UNITS[sensor_type]
+#         # self._type = sensor_type
+#         # self._attr_device_info = async_device_info_to_link_from_entity(
+#         #     hass,
+#         #     source_entity_id,
+#         # )
+#         self._attr_unique_id = unique_id
+#         self._sensor_source_id: str = source_entity_id
+#         self._attr_name = name if name is not None else f"{source_entity_id} model"
+#         self._attr_icon = "mdi:chart-histogram"
+#         self._last_data_load_time: datetime = datetime.now(tz=UTC)
+#         self._process_update()  # determines the attr native value of the model itself, which is a boolean
+
+#     def _derive_and_set_attributes_from_state(self, source_state: State) -> None:
+#         # If the source has no defined unit we cannot derive a unit
+#         # self._unit_of_measurement = None
+
+#         self._attr_device_class = None
+#         if self._attr_device_class:
+#             self._attr_icon = None  # Remove this sensors icon default and allow to fallback to the device class default
+#         else:
+#             self._attr_icon = "mdi:chart-histogram"
+
+#     @callback
+#     def _process_update(self) -> None:
+#         """Process an update from the coordinator and store in sensor native value."""
+#         state = (
+#             self.coordinator.data
+#         )  # setting native value of data loader based off the state of the coordinator
+#         # _LOGGER.debug("Printing state of coordinator: %s", state)
+#         if state is None or state.ready is False:
+#             self._attr_native_value = False
+#             return
+
+#         # if count condition is met, set native value to True for at least 1 second
+#         # eventually and set to False once the model starts processing the data
+#         if state.ready is not None and state.ready:
+#             self._attr_native_value = True
+#             return
+
+
+class AnomalyDetectorView(CoordinatorEntity, SensorEntity):
+    """The view for the anomaly detector."""
+
+    _attr_available = False
+    _attr_has_entity_name = True
 
     def __init__(
         self,
@@ -216,43 +272,18 @@ class MLModelSensor(MLModelSensorBase):
         unique_id: str | None,
     ) -> None:
         """Initialize the data loader sensor."""
-        super().__init__(coordinator, name)
-        # self._attr_native_unit_of_measurement = UNITS[sensor_type]
-        # self._type = sensor_type
-        # self._attr_device_info = async_device_info_to_link_from_entity(
-        #     hass,
-        #     source_entity_id,
-        # )
-        self._attr_unique_id = unique_id
-        self._sensor_source_id: str = source_entity_id
-        self._attr_name = name if name is not None else f"{source_entity_id} model"
-        self._attr_icon = "mdi:chart-histogram"
-        self._last_data_load_time: datetime = datetime.now(tz=UTC)
-        self._process_update()  # determines the attr native value of the model itself, which is a boolean
+        super().__init__(
+            coordinator, context=name
+        )  # for passing data from coordinator's async_update method to specific entity
+        self._name = name
 
-    def _derive_and_set_attributes_from_state(self, source_state: State) -> None:
-        # If the source has no defined unit we cannot derive a unit
-        # self._unit_of_measurement = None
-
-        self._attr_device_class = None
-        if self._attr_device_class:
-            self._attr_icon = None  # Remove this sensors icon default and allow to fallback to the device class default
-        else:
-            self._attr_icon = "mdi:chart-histogram"
+    # async def async_added_to_hass(self) -> None:
 
     @callback
-    def _process_update(self) -> None:
-        """Process an update from the coordinator and store in sensor native value."""
-        state = (
-            self.coordinator.data
-        )  # setting native value of data loader based off the state of the coordinator
-        # _LOGGER.debug("Printing state of coordinator: %s", state)
-        if state is None or state.ready is False:
-            self._attr_native_value = False
-            return
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        data = self.coordinator.data
 
-        # if count condition is met, set native value to True for at least 1 second
-        # eventually and set to False once the model starts processing the data
-        if state.ready is not None and state.ready:
-            self._attr_native_value = True
-            return
+        self._attr_native_value = data  # for sensor entity
+        self._attr_available = True
+        self.async_write_ha_state()

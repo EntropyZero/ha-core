@@ -66,7 +66,11 @@ class DataLoader:
                 )
 
         self._state: DataLoaderState = DataLoaderState(
-            seconds_matched=0, match_count=0, period=self._period, ready=False
+            seconds_matched=0,
+            match_count=0,
+            period=self._period,
+            ready=False,
+            batch_data=[],
         )
         self._history_current_period: list[BatchData] = []
         self._history_previous_period: list[BatchData] = []
