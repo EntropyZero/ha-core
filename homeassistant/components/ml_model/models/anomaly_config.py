@@ -11,3 +11,10 @@ class AnomalyConfig:
     duration: timedelta | None
     batch_method: str
     count_condition: int | None
+
+    def __init__(self):
+        self.entity_id = ""
+        self.entity_states = []
+        self.duration = None
+        self.batch_method = "changepoint"
+        self.count_condition = None
